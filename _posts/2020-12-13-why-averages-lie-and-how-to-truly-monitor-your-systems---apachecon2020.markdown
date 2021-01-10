@@ -14,6 +14,8 @@ This simple fact seems to surprise many people. It feels good looking at steady 
 
 In the session I presented at[ ApacheCon @Home 2020](https://www.apachecon.com/acah2020/tracks/observability.html) I tried to discuss why is it important to pay attention to the “higher end” of the percentile spectrum in most application monitoring, benchmarking, and tuning environments and how you can make better usage of the open-source tooling we have at our disposal ( giving examples on both OSS HDR and T-Digest Histograms ).
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/mjHam20dmW8" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+
 #### Further references
 
 This session it’s supposed to be white/yellow belt and contains further references for documentation, projects and presentations diving deeper in the discussed subjects:
