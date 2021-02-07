@@ -3,18 +3,18 @@ layout:	post
 title:	"Hands-on profile driven redudant computation removal"
 date:	2021-02-07
 ---
-r
+
 ![](/img/perf-hdr_value_at_percentile_chart.jpeg)
   
 # Introduction
 
 As you will see during this post, even highly optimized software is very likely to perform “redundant” computation during single or consecutive executions. 
 This is either due to way we've designed it (algorithms) or the nature of the values assumed as inputs (dataset). 
-Therefore, to fully understand if removing redudant computation represents an opportunity for improving the efficiency of our programs we need to:
+Therefore, to fully understand if removing redundant computation represents an opportunity for improving the efficiency of our programs we need to:
 - have visibility to where threads are spending CPU cycles while running on-CPU, and wether those cycles are effectively being used for computation.
 - understand if we can reuse that same computation as a mean for improving performance -- and this can only be made with a deep understand of the domain and problems our program is solving ans how is it being used.
 
-This post idea came after I've started a POC on my Redis fork [(link)](https://github.com/redis/redis/compare/unstable...filipecosta90:latencystats.per.cat) to extended the current latency metrics Redis Provides. To do so I'm using the C version of the [HdrHistogram](https://github.com/HdrHistogram/HdrHistogram_c) to have a per command histogram and calculate both the cumulative latency distribution and precompute some "commonly used" percentiles used for doing latency analysis. If you haven't yet come across this type of highly optimized skecthing data-structure I suggest you look into one of the many Gil Tene's excelent presentations on [youtube](https://www.youtube.com/watch?v=lJ8ydIuPFeU).
+This post idea came after I've started a POC on my Redis fork [(link)](https://github.com/redis/redis/compare/unstable...filipecosta90:latencystats.per.cat) to extended the current latency metrics Redis Provides. To do so I'm using the C version of the [HdrHistogram](https://github.com/HdrHistogram/HdrHistogram_c) to have a per command histogram and calculate both the cumulative latency distribution and pre-compute some "commonly used" percentiles used for doing latency analysis. If you haven't yet come across this type of highly optimized sketching data-structure I suggest you look into one of the many Gil Tene's excellent presentations on [youtube](https://www.youtube.com/watch?v=lJ8ydIuPFeU).
 
 Now getting back to our problem, and thinking on the way we do latency percentile analysis, we normally require more than one percentile to be calculated for the given histogram at any given moment (example of p50, p95, p99, p999). 
 
@@ -53,7 +53,7 @@ To realize computation reuse, it is necessary to capture run-time behavior of a 
 Given the above function definition we should start by preparing an example that will allow us to profile code execution and determine which functions are consuming the most time and thus are targets for optimization. 
 
 
-To do so, we'll use Google's microbenchmarking framework ([google/benchmark](https://github.com/google/benchmark)), that the C version of the HdrHistogram already incomporates, to simulate a dataset representative of real-life scenarios ( random deterministic gamma distribution to mimic latencies ) and calculate 4 very common percetiles used on any analysis (p50,p95,p99,p999).
+To do so, we'll use Google's microbenchmarking framework ([google/benchmark](https://github.com/google/benchmark)), that the C version of the HdrHistogram already incorporates, to simulate a dataset representative of real-life scenarios ( random deterministic gamma distribution to mimic latencies ) and calculate 4 very common percentiles used on any analysis (p50,p95,p99,p999).
 
 The bellow micro-benchmark can be consulted and directly compiled from the following [GH repo](https://github.com/RedisBloom/HdrHistogram_c/blob/value_at_percentiles/test/hdr_histogram_benchmark.cpp#L87).
 
@@ -93,7 +93,7 @@ static void BM_hdr_value_at_percentile_given_array(benchmark::State &state) {
 }
 ```
 
-To clone the HdrHistogram repo and build the microbenchmark locallly do as follows:
+To clone the HdrHistogram repo and build the microbenchmark locally do as follows:
 ```
 git clone https://github.com/RedisBloom/HdrHistogram_c
 git checkout value_at_percentiles
@@ -122,9 +122,9 @@ BM_hdr_value_at_percentile_given_array/3/86400000000     344046 ns       344042 
 ```
 
 ## Where are those CPU cycles being spent
-As seen above, it takes us 344 microseconds of CPU time to compute the 4 percentiles, leading to a max of approximately 11.6K calculations per second. It is now time to understand where are those CPU cycles being spent on the above defined function definition. To do so we'll collect, report and visualize hotspots using perf. There are severall tools that can be used to achieve the same outcome like bcc/BPF tracing tools, or Intel Vtune Profiler, among others...
+As seen above, it takes us 344 microseconds of CPU time to compute the 4 percentiles, leading to a max of approximately 11.6K calculations per second. It is now time to understand where are those CPU cycles being spent on the above defined function definition. To do so we'll collect, report and visualize hotspots using perf. There are several tools that can be used to achieve the same outcome like bcc/BPF tracing tools, or Intel Vtune Profiler, among others...
 
-The following steps rely uppon Linux perf_events (aka ["perf"](https://man7.org/linux/man-pages/man1/perf.1.html)). I'll assume beforehand you have installed the perf tool on your system. Most Linux distributions will likely package this as a package related to the kernel. More information about the perf tool can be found at perf [wiki](https://perf.wiki.kernel.org/).
+The following steps rely upon Linux perf_events (aka ["perf"](https://man7.org/linux/man-pages/man1/perf.1.html)). I'll assume beforehand you have installed the perf tool on your system. Most Linux distributions will likely package this as a package related to the kernel. More information about the perf tool can be found at perf [wiki](https://perf.wiki.kernel.org/).
 
 ### Profiling build prerequisites
 
@@ -134,7 +134,7 @@ required that stack traces to be available to tracers.
 By default our example is compiled with the `-O2` switch ( which we intent to keep during profiling). This means that compiler
 optimizations are enabled. 
 
-Many compilers ommit the frame pointer as a way of 
+Many compilers omit the frame pointer as a way of 
 runtime optimization ( saving a register ), thus breaking frame pointer-based 
 stack walking. This makes the executable faster, but at the
 same time it makes it (like any other program) harder to trace, potentially 
@@ -185,7 +185,7 @@ You can then report with a call-graph output (call chain, stack backtrace), with
 perf report -g "graph,0.5,caller"
 ```
 
-Note: See the [perf report](https://man7.org/linux/man-pages/man1/perf-report.1.html) documention for advanced filtering, sorting and aggregation capabilities.
+Note: See the [perf report](https://man7.org/linux/man-pages/man1/perf-report.1.html) documentation for advanced filtering, sorting and aggregation capabilities.
 
 
 If we filter by the `hdr_value_at_percentile` symbol and annotate it we'll notice that 99% of the CPU cycles of `hdr_value_at_percentile` are spent on the iterator calculating the cumulative count up until we reach or surpass the count that represents the percentile.
@@ -194,13 +194,13 @@ If we filter by the `hdr_value_at_percentile` symbol and annotate it we'll notic
 ![](/img/perf-hdr_value_at_percentile-annotated.png)
 
 
-This means that if we want to compute p50 and p99, we could re-use the already precomputed comulative count that gives us the p50 and start from that value ( instead of starting again at 0 ) for calculating the p99, thus eliminating the redundant computation. 
+This means that if we want to compute p50 and p99, we could re-use the already precomputed cumulative count that gives us the p50 and start from that value ( instead of starting again at 0 ) for calculating the p99, thus eliminating the redundant computation. 
 
 ## Adding the value_at_percentiles API
 
 As seen above, when we want to compute multiple percentiles for a given histogram, we've identified a reusable partial results in `hdr_value_at_percentile` that is also where threads are spending most CPU cycles while running on-CPU. 
 
-With that in mind, by adding a new API with the following signature and implementation, and assuming the user will follow the API pre-requesites (sorted percentiles array input) we should be able to deeply reduce redundant work and improve the overall function performance.
+With that in mind, by adding a new API with the following signature and implementation, and assuming the user will follow the API pre-requisites (sorted percentiles array input) we should be able to deeply reduce redundant work and improve the overall function performance.
 
 ### new api function signature
 ```c
